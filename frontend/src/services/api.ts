@@ -138,7 +138,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' }
     }),
 
-  
+  getSessions: (): Promise<SessionResponse[]> => 
+    fetchWithHandle(`/api/v1/sessions`, {
+      headers: { 'Content-Type': 'application/json' }
+    }),
 
   analyzeRisk: (sessionId: string, audioBlob: Blob): Promise<RiskResponse> => {
     const formData = new FormData();
