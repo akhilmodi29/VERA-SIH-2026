@@ -2,7 +2,6 @@ import React from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import { 
   Home, 
-  Clock, 
   Users, 
   FileText,
   ShieldCheck
@@ -16,7 +15,6 @@ const MainLayout: React.FC = () => {
         <div className="p-6">
           <nav className="space-y-2 mt-4">
             <NavItem to="/" icon={<Home size={18} />} label="Dashboard" exact />
-            <NavItem to="/sessions" icon={<Clock size={18} />} label="Sessions" />
             <NavItem to="/voice-profiles" icon={<Users size={18} />} label="Voice Profiles" />
             <NavItem to="/evidence" icon={<FileText size={18} />} label="Evidence" />
           </nav>
