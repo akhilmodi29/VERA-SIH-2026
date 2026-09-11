@@ -193,26 +193,16 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
           setTelemetry(prev => {
             const prevScore = prev?.overall_risk_score ?? 0;
             const newScore = data.overall_risk_score ?? 0;
-            const maxScore = Math.max(prevScore, newScore);
-            
-            const riskHierarchy = ['low', 'medium', 'high', 'critical'];
-            const getRiskIdx = (r?: string) => riskHierarchy.indexOf((r || '').toLowerCase());
-            const prevRiskIdx = getRiskIdx(prev?.risk_level);
-            const newRiskIdx = getRiskIdx(data.risk_level);
-            const maxRisk = prevRiskIdx > newRiskIdx ? prev?.risk_level : data.risk_level;
-            
-            const decisionHierarchy = ['allow', 'warn', 'verify', 'block'];
-            const getDecIdx = (d?: string) => decisionHierarchy.indexOf((d || '').toLowerCase());
-            const prevDecIdx = getDecIdx(prev?.decision);
-            const newDecIdx = getDecIdx(data.decision);
-            const maxDecision = prevDecIdx > newDecIdx ? prev?.decision : data.decision;
-
-            return {
-              ...data,
-              overall_risk_score: maxScore,
-              risk_level: maxRisk,
-              decision: maxDecision
-            };
+            // Always preserve the highest risk score and level throughout the session
+            if (newScore > prevScore) {
+              return { ...data };
+            } else {
+              return {
+                ...data,
+                overall_risk_score: prevScore,
+                risk_level: prev?.risk_level ?? data.risk_level
+              };
+            }
           });
           if (data.transcript) {
             setAccumulatedTranscript(prev => mergeTranscripts(prev, data.transcript));
