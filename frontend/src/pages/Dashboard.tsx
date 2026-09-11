@@ -423,7 +423,12 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="flex items-center space-x-6">
                 {/* Ring Chart (Simulated) */}
-                <div className="relative w-24 h-24 flex items-center justify-center rounded-full border-[6px] border-[#121d30] border-t-emerald-400 border-r-emerald-400 transform -rotate-45 shadow-[inset_0_0_15px_rgba(16,185,129,0.1)]">
+                <div className="relative w-24 h-24 flex items-center justify-center rounded-full border-[6px] border-[#121d30] transform -rotate-45 ${
+                      displayRiskData?.risk_level === 'critical' ? 'border-t-red-500 border-r-red-500 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' :
+                      displayRiskData?.risk_level === 'high' ? 'border-t-orange-500 border-r-orange-500 shadow-[inset_0_0_15px_rgba(249,115,22,0.2)]' :
+                      displayRiskData?.risk_level === 'medium' ? 'border-t-yellow-500 border-r-yellow-500 shadow-[inset_0_0_15px_rgba(234,179,8,0.2)]' :
+                      'border-t-emerald-400 border-r-emerald-400 shadow-[inset_0_0_15px_rgba(16,185,129,0.1)]'
+                    }">
                   <div className="transform rotate-45 text-xl font-bold text-white">
                     {displayRiskData?.overall_risk_score != null ? (displayRiskData.overall_risk_score <= 1.0 ? displayRiskData.overall_risk_score * 100 : displayRiskData.overall_risk_score).toFixed(1) : '--'}%
                   </div>
