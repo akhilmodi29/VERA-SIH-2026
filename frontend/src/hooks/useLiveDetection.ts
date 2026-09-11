@@ -19,10 +19,45 @@ export interface UseLiveDetectionResult {
   connectionState: ConnectionState;
   telemetry: TelemetryData | null;
   telemetryHistory: TelemetryData[];
+  accumulatedSignals: string[];
+  accumulatedTranscript: string;
   error: string | null;
   startLiveDetection: (sessionId: string) => Promise<void>;
   stopLiveDetection: () => void;
   getLiveSessionBlob: () => Blob | null;
+  getAnalyser: () => AnalyserNode | null;
+}
+
+function mergeTranscripts(existing: string, incoming: string): string {
+  if (!existing) return incoming.trim();
+  if (!incoming || incoming.trim() === '') return existing;
+  
+  const ex = existing.trim();
+  const inc = incoming.trim();
+  
+  const clean = (s: string) => s.toLowerCase().replace(/[.,!?]/g, '');
+  
+  const exWords = ex.split(/\s+/);
+  const incWords = inc.split(/\s+/);
+  const incCleanWords = incWords.map(clean);
+  const exCleanWords = exWords.map(clean);
+  
+  let maxOverlap = 0;
+  const maxLen = Math.min(exWords.length, incWords.length);
+  
+  for (let i = 1; i <= maxLen; i++) {
+    const suffix = exCleanWords.slice(-i).join(' ');
+    const prefix = incCleanWords.slice(0, i).join(' ');
+    if (suffix === prefix) {
+      maxOverlap = i;
+    }
+  }
+  
+  if (maxOverlap > 0) {
+    const remaining = incWords.slice(maxOverlap).join(' ');
+    return remaining ? ex + ' ' + remaining : ex;
+  }
+  return ex + ' ' + inc;
 }
 
 const WS_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/^http/, 'ws');
@@ -72,12 +107,15 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
   const [connectionState, setConnectionState] = useState<ConnectionState>('Disconnected');
   const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
   const [telemetryHistory, setTelemetryHistory] = useState<TelemetryData[]>([]);
+  const [accumulatedSignals, setAccumulatedSignals] = useState<string[]>([]);
+  const [accumulatedTranscript, setAccumulatedTranscript] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
   const pcmBufferRef = useRef<Int16Array[]>([]);
@@ -87,6 +125,10 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
   const fullSessionLengthRef = useRef<number>(0);
 
   const cleanupResources = useCallback(() => {
+    if (analyserRef.current) {
+      analyserRef.current.disconnect();
+      analyserRef.current = null;
+    }
     if (processorRef.current) {
       processorRef.current.disconnect();
       processorRef.current = null;
@@ -109,8 +151,6 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
     }
     pcmBufferRef.current = [];
     pcmLengthRef.current = 0;
-    // Don't clear fullSessionBufferRef here so we can generate evidence after stopping.
-    // We'll clear it specifically inside startLiveDetection.
   }, []);
 
   const stopLiveDetection = useCallback(() => {
@@ -124,6 +164,8 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
     setError(null);
     setTelemetry(null);
     setTelemetryHistory([]);
+    setAccumulatedSignals([]);
+    setAccumulatedTranscript('');
     fullSessionBufferRef.current = [];
     fullSessionLengthRef.current = 0;
 
@@ -132,7 +174,6 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
         throw new Error('Microphone not supported on this browser.');
       }
 
-      // Initialize WebSocket
       const wsUrl = `${WS_BASE_URL}/api/v1/ws/sessions/${sessionId}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -146,12 +187,36 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
           const data = JSON.parse(event.data);
           if (data.error) {
             console.error('WebSocket backend error:', data.error);
-            // Non-fatal, keep connection open as per backend spec
             return;
           }
           data.timestamp = new Date().toISOString();
-          setTelemetry(data);
+          setTelemetry(prev => {
+            const prevScore = prev?.overall_risk_score ?? 0;
+            const newScore = data.overall_risk_score ?? 0;
+            // Always preserve the highest risk score and level throughout the session
+            if (newScore > prevScore) {
+              return { ...data };
+            } else {
+              return {
+                ...data,
+                overall_risk_score: prevScore,
+                risk_level: prev?.risk_level ?? data.risk_level
+              };
+            }
+          });
+          if (data.transcript) {
+            setAccumulatedTranscript(prev => mergeTranscripts(prev, data.transcript));
+          }
           setTelemetryHistory(prev => [...prev, data]);
+          
+          if (data.signals && Array.isArray(data.signals) && data.signals.length > 0) {
+            setAccumulatedSignals(prev => {
+              const newSet = new Set(prev);
+              data.signals.forEach((s: string) => newSet.add(s));
+              return Array.from(newSet);
+            });
+          }
+          
           setConnectionState('Live');
         } catch (err) {
           console.error('Malformed telemetry data', err);
@@ -175,7 +240,6 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
         cleanupResources();
       };
 
-      // Initialize Web Audio API for PCM16 16kHz Mono capture
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
@@ -190,11 +254,15 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;
 
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.8;
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      
       source.connect(processor);
       processor.connect(audioContext.destination);
 
-      // We want to accumulate ~3 seconds of 16kHz (48,000 samples)
-      // The backend triggers processing at 100,000 bytes (50,000 samples)
       const SAMPLES_THRESHOLD = 50000;
 
       processor.onaudioprocess = (e) => {
@@ -206,14 +274,12 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
         pcmBufferRef.current.push(pcm16);
         pcmLengthRef.current += pcm16.length;
 
-        // ACCUMULATE FULL SESSION FOR EVIDENCE GENERATION
         fullSessionBufferRef.current.push(pcm16);
         fullSessionLengthRef.current += pcm16.length;
 
         if (pcmLengthRef.current >= SAMPLES_THRESHOLD) {
           setConnectionState('Processing');
           
-          // Merge buffers
           const merged = new Int16Array(pcmLengthRef.current);
           let offset = 0;
           for (const buf of pcmBufferRef.current) {
@@ -258,9 +324,12 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
     connectionState,
     telemetry,
     telemetryHistory,
+    accumulatedSignals,
+    accumulatedTranscript,
     error,
     startLiveDetection,
     stopLiveDetection,
-    getLiveSessionBlob
+    getLiveSessionBlob,
+    getAnalyser: useCallback(() => analyserRef.current, [])
   };
 };

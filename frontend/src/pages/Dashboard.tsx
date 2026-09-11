@@ -56,6 +56,69 @@ type AnalysisStage =
   // error: 'Analysis failed.',
 // };
 
+
+const LiveWaveform: React.FC<{ analyser: AnalyserNode | null; isActive: boolean }> = ({ analyser, isActive }) => {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  React.useEffect(() => {
+    if (!analyser || !isActive || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationId: number;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const draw = () => {
+      animationId = requestAnimationFrame(draw);
+      analyser.getByteTimeDomainData(dataArray);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#3B82F6';
+      ctx.beginPath();
+
+      const sliceWidth = canvas.width * 1.0 / bufferLength;
+      let x = 0;
+
+      for (let i = 0; i < bufferLength; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * (canvas.height / 2);
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+        x += sliceWidth;
+      }
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+    };
+
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, [analyser, isActive]);
+
+  if (!isActive) {
+    return (
+      <div className="w-full h-12 bg-[#121d30]/30 rounded-lg border border-[#1a2333] flex items-center justify-center">
+        <span className="text-xs text-gray-600 font-mono">MIC IDLE</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-12 bg-[#0d1627] rounded-lg border border-blue-900/50 flex items-center justify-center overflow-hidden relative">
+      <div className="absolute inset-0 bg-blue-900/10 pointer-events-none" />
+      <canvas ref={canvasRef} width={300} height={40} className="w-full h-full opacity-80" />
+    </div>
+  );
+};
+
 const Dashboard: React.FC = () => {
   
   const [activeSession, setActiveSession] = useState<SessionResponse | null>(null);
@@ -84,9 +147,12 @@ const Dashboard: React.FC = () => {
     connectionState,
     telemetry,
     telemetryHistory,
+    accumulatedSignals,
+    accumulatedTranscript,
     error: liveError,
     startLiveDetection,
     stopLiveDetection,
+    getAnalyser
   } = useLiveDetection();
 
   /* formatTime */
@@ -174,8 +240,8 @@ const Dashboard: React.FC = () => {
       ? {
           overall_risk_score: telemetry.overall_risk_score,
           risk_level: telemetry.risk_level ?? 'unavailable',
-          contributing_signals: telemetry.signals ?? [],
-          transcript: telemetry.transcript,
+          contributing_signals: accumulatedSignals.length > 0 ? accumulatedSignals : (telemetry.signals ?? []),
+          transcript: accumulatedTranscript || telemetry.transcript,
           voice_integrity_score: telemetry.voice_integrity_score,
         }
       : batchRisk
@@ -359,7 +425,7 @@ const Dashboard: React.FC = () => {
                 {/* Ring Chart (Simulated) */}
                 <div className="relative w-24 h-24 flex items-center justify-center rounded-full border-[6px] border-[#121d30] border-t-emerald-400 border-r-emerald-400 transform -rotate-45 shadow-[inset_0_0_15px_rgba(16,185,129,0.1)]">
                   <div className="transform rotate-45 text-xl font-bold text-white">
-                    {displayRiskData?.overall_risk_score != null ? (displayRiskData.overall_risk_score * 100).toFixed(1) : '--'}%
+                    {displayRiskData?.overall_risk_score != null ? (displayRiskData.overall_risk_score <= 1.0 ? displayRiskData.overall_risk_score * 100 : displayRiskData.overall_risk_score).toFixed(1) : '--'}%
                   </div>
                 </div>
                 
@@ -443,8 +509,12 @@ const Dashboard: React.FC = () => {
               <li className="flex items-center text-sm text-gray-300">
                 <div className={`w-1.5 h-1.5 rounded-full ${connectionState === 'Disconnected' ? 'bg-gray-600' : 'bg-emerald-500'} mr-3`}></div>
                 WebSocket {connectionState.toLowerCase()}
-              </li>
-            </ul>
+                </li>
+              </ul>
+              
+              <div className="mt-4 w-full">
+                <LiveWaveform analyser={getAnalyser()} isActive={connectionState !== 'Disconnected' && connectionState !== 'Error'} />
+              </div>
           </div>
         </div>
 
@@ -637,7 +707,7 @@ const Dashboard: React.FC = () => {
                         {displayDecisionData?.decision || 'ALLOW'}
                       </span>
                     </td>
-                    <td className="py-3 text-gray-300 text-xs font-mono">{displayRiskData?.overall_risk_score ? (displayRiskData.overall_risk_score * 100).toFixed(1) + '%' : '12.6%'}</td>
+                    <td className="py-3 text-gray-300 text-xs font-mono">{displayRiskData?.overall_risk_score != null ? (displayRiskData.overall_risk_score <= 1.0 ? displayRiskData.overall_risk_score * 100 : displayRiskData.overall_risk_score).toFixed(1) + '%' : '12.6%'}</td>
                     <td className="py-3">
                       <div className="flex items-center text-gray-400 text-xs font-mono">
                         {evidenceData ? (evidenceData?.hash || '').substring(0, 16) + '...' : '4f2e9c7a8b6d...'}
