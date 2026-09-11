@@ -371,10 +371,10 @@ const Dashboard: React.FC = () => {
         )}
 
         {/* 4 Top Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
           
           {/* Voice Integrity */}
-          <div className="bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 flex flex-col justify-between shadow-lg relative overflow-hidden">
+          <div className="bg-[#0a101d] border border-[#1a2333] rounded-xl p-3 md:p-5 flex flex-col justify-between shadow-lg relative overflow-hidden">
             <div className="flex justify-between items-center mb-4 relative z-10">
               <div className="flex items-center text-gray-300 font-semibold text-sm">
                 <FileAudio size={16} className="text-blue-500 mr-2" />
@@ -415,21 +415,16 @@ const Dashboard: React.FC = () => {
           </div>
           
           {/* Overall Risk */}
-          <div className="bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 flex items-center shadow-lg">
+          <div className="bg-[#0a101d] border border-[#1a2333] rounded-xl p-3 md:p-5 flex items-center shadow-lg">
             <div className="flex-1 flex flex-col justify-between h-full">
               <div className="flex items-center text-gray-300 font-semibold text-sm mb-4">
                 <ShieldAlert size={16} className="text-blue-500 mr-2" />
                 Overall Risk
               </div>
-              <div className="flex items-center space-x-6">
+              <div className="flex items-center space-x-3 md:space-x-6">
                 {/* Ring Chart (Simulated) */}
-                <div className="relative w-24 h-24 flex items-center justify-center rounded-full border-[6px] border-[#121d30] transform -rotate-45 ${
-                      displayRiskData?.risk_level === 'critical' ? 'border-t-red-500 border-r-red-500 shadow-[inset_0_0_15px_rgba(239,68,68,0.2)]' :
-                      displayRiskData?.risk_level === 'high' ? 'border-t-orange-500 border-r-orange-500 shadow-[inset_0_0_15px_rgba(249,115,22,0.2)]' :
-                      displayRiskData?.risk_level === 'medium' ? 'border-t-yellow-500 border-r-yellow-500 shadow-[inset_0_0_15px_rgba(234,179,8,0.2)]' :
-                      'border-t-emerald-400 border-r-emerald-400 shadow-[inset_0_0_15px_rgba(16,185,129,0.1)]'
-                    }">
-                  <div className="transform rotate-45 text-xl font-bold text-white">
+                <div className="relative w-16 h-16 md:w-24 md:h-24 flex shrink-0 items-center justify-center rounded-full border-[6px] border-[#121d30] border-t-emerald-400 border-r-emerald-400 transform -rotate-45 shadow-[inset_0_0_15px_rgba(16,185,129,0.1)]">
+                  <div className="transform rotate-45 text-sm md:text-xl font-bold text-white">
                     {displayRiskData?.overall_risk_score != null ? (displayRiskData.overall_risk_score <= 1.0 ? displayRiskData.overall_risk_score * 100 : displayRiskData.overall_risk_score).toFixed(1) : '--'}%
                   </div>
                 </div>
@@ -458,7 +453,7 @@ const Dashboard: React.FC = () => {
           </div>
           
           {/* Decision */}
-          <div className="bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 flex flex-col shadow-lg">
+          <div className="bg-[#0a101d] border border-[#1a2333] rounded-xl p-3 md:p-5 flex flex-col shadow-lg">
             <div className="flex items-center text-gray-300 font-semibold text-sm mb-4">
               <CheckCircle2 size={16} className="text-emerald-500 mr-2" />
               Decision
@@ -485,7 +480,7 @@ const Dashboard: React.FC = () => {
           </div>
           
           {/* Detection Status */}
-          <div className="bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 shadow-lg flex flex-col">
+          <div className="bg-[#0a101d] border border-[#1a2333] rounded-xl p-3 md:p-5 shadow-lg flex flex-col">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center text-gray-300 font-semibold text-sm">
                 <Activity size={16} className="text-blue-500 mr-2" />
@@ -503,15 +498,15 @@ const Dashboard: React.FC = () => {
             </div>
             
             <ul className="space-y-4 flex-1">
-              <li className="flex items-center text-sm text-gray-300">
+              <li className="flex items-center text-xs md:text-sm text-gray-300">
                 <div className={`w-1.5 h-1.5 rounded-full ${connectionState === 'Live' ? 'bg-emerald-500' : 'bg-gray-600'} mr-3`}></div>
                 Listening...
               </li>
-              <li className="flex items-center text-sm text-gray-300">
+              <li className="flex items-center text-xs md:text-sm text-gray-300">
                 <div className={`w-1.5 h-1.5 rounded-full ${connectionState === 'Live' ? 'bg-emerald-500' : 'bg-gray-600'} mr-3`}></div>
                 Processing 3s chunks
               </li>
-              <li className="flex items-center text-sm text-gray-300">
+              <li className="flex items-center text-xs md:text-sm text-gray-300">
                 <div className={`w-1.5 h-1.5 rounded-full ${connectionState === 'Disconnected' ? 'bg-gray-600' : 'bg-emerald-500'} mr-3`}></div>
                 WebSocket {connectionState.toLowerCase()}
                 </li>
@@ -527,7 +522,7 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
           
           {/* Live Transcript */}
-          <div className="col-span-1 md:col-span-4 bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 shadow-lg flex flex-col h-80">
+          <div className="col-span-1 md:col-span-4 bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 shadow-lg flex flex-col h-64 md:h-80">
             <div className="flex justify-between items-center mb-4 border-b border-[#1a2333] pb-3">
               <div className="flex items-center text-gray-300 font-semibold text-sm">
                 <MessageSquareWarning size={16} className="text-gray-400 mr-2" />
@@ -632,7 +627,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Right Column (Timeline) */}
-          <div className="col-span-1 md:col-span-4 bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 shadow-lg flex flex-col h-80">
+          <div className="col-span-1 md:col-span-4 bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 shadow-lg flex flex-col h-64 md:h-80">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center text-gray-300 font-semibold text-sm">
                 <Activity size={16} className="text-blue-500 mr-2" />
@@ -679,7 +674,7 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 mt-4">
           
           {/* Recent Evidence */}
-          <div className="col-span-1 md:col-span-6 bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 shadow-lg">
+          <div className="col-span-1 md:col-span-6 bg-[#0a101d] border border-[#1a2333] rounded-xl p-4 md:p-5 shadow-lg">
             <div className="flex justify-between items-center mb-4 border-b border-[#1a2333] pb-3">
               <div className="flex items-center text-gray-300 font-semibold text-sm">
                 <FileText size={16} className="text-gray-400 mr-2" />
@@ -689,7 +684,7 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto"><table className="w-full text-left text-sm whitespace-nowrap md:whitespace-normal">
                 <thead>
                   <tr className="text-gray-500 text-xs border-b border-[#1a2333]">
                     <th className="pb-2 font-normal">Session ID</th>
@@ -721,12 +716,12 @@ const Dashboard: React.FC = () => {
                     </td>
                   </tr>
                 </tbody>
-              </table>
+              </table></div>
+              </div>
             </div>
-          </div>
-          
-          {/* Quick Scenarios */}
-          <div className="col-span-1 md:col-span-6 bg-[#0a101d] border border-[#1a2333] rounded-xl p-5 shadow-lg">
+            
+            {/* Quick Scenarios */}
+          <div className="col-span-1 md:col-span-6 bg-[#0a101d] border border-[#1a2333] rounded-xl p-4 md:p-5 shadow-lg">
             <div className="flex items-center text-gray-300 font-semibold text-sm mb-4 border-b border-[#1a2333] pb-3">
               <Activity size={16} className="text-gray-400 mr-2" />
               Quick Scenarios
