@@ -182,6 +182,13 @@ async def analyze_session_risk(
         raise HTTPException(status_code=400, detail=str(e))
 
     voice_result = voice_integrity_service.analyze_voice(y, sr)
+    if voice_result.get("state") == "NO_SPEECH":
+        risk_result = {
+            "overall_risk_score": None,
+            "risk_level": "low",
+            "contributing_signals": []
+        }
+        return ok(session_id, {"filename": filename, "transcript": "", "risk_analysis": risk_result})
 
 
     asr_result = asr_service.transcribe_audio(y, sr)
@@ -217,6 +224,9 @@ async def evaluate_session_decision(
         raise HTTPException(status_code=400, detail=str(e))
 
     voice_result = voice_integrity_service.analyze_voice(y, sr)
+    if voice_result.get("state") == "NO_SPEECH":
+        policy_result = {"decision": "neutral", "escalated": False}
+        return ok(session_id, {"filename": filename, "policy": policy_result})
 
 
     asr_result = asr_service.transcribe_audio(y, sr)
@@ -274,6 +284,13 @@ async def generate_session_evidence(
         raise HTTPException(status_code=400, detail=str(e))
 
     voice_result = voice_integrity_service.analyze_voice(y, sr)
+    if voice_result.get("state") == "NO_SPEECH":
+        return ok(session_id, {
+            "filename": filename,
+            "evidence_record": None,
+            "hash": None,
+            "algorithm": "SHA-256"
+        })
 
 
     asr_result = asr_service.transcribe_audio(y, sr)

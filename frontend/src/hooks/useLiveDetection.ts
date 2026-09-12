@@ -269,7 +269,19 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
         
         const inputData = e.inputBuffer.getChannelData(0);
-        const pcm16 = floatTo16BitPCM(inputData);
+        const actualSampleRate = e.inputBuffer.sampleRate;
+        
+        let resampledData = inputData;
+        if (actualSampleRate !== 16000) {
+          const ratio = actualSampleRate / 16000;
+          const newLength = Math.round(inputData.length / ratio);
+          resampledData = new Float32Array(newLength);
+          for (let i = 0; i < newLength; i++) {
+            resampledData[i] = inputData[Math.round(i * ratio)] || 0;
+          }
+        }
+        
+        const pcm16 = floatTo16BitPCM(resampledData);
         
         pcmBufferRef.current.push(pcm16);
         pcmLengthRef.current += pcm16.length;

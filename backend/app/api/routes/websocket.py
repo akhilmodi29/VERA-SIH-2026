@@ -1,4 +1,5 @@
 import logging
+import time
 import base64
 import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
@@ -56,21 +57,59 @@ async def websocket_endpoint(
                 temp_audio_path = temp_audio.name
             
             try:
+                t0 = time.perf_counter()
                 y, sr = librosa.load(temp_audio_path, sr=16000, mono=True)
+                t1 = time.perf_counter()
             except Exception as e:
                 raise ValueError(f"Invalid WAV or audio format: {str(e)}")
             
             voice_result = voice_integrity_service.analyze_voice(y, sr)
+            t2 = time.perf_counter()
+            
+            if voice_result.get("state") == "NO_SPEECH":
+                response = {
+                    "session_id": session_id,
+                    "transcript": "",
+                    "voice_integrity_score": None,
+                    "speaker_similarity_score": None,
+                    "overall_risk_score": None,
+                    "risk_level": current_max_risk,
+                    "decision": "neutral",
+                    "signals": [],
+                    "state": "NO_SPEECH"
+                }
+                if chunk_id is not None:
+                    response["chunk_id"] = chunk_id
+                await websocket.send_json(response)
+                return
+
             asr_result = asr_service.transcribe_audio(y, sr)
+            t3 = time.perf_counter()
+            
             transcript = asr_result.get("transcript", "")
+            
             intent_result = intent_service.analyze_intent(transcript)
+            t4 = time.perf_counter()
+            
             action_context_result = action_context_service.analyze_action_context(transcript, intent_result)
+            t5 = time.perf_counter()
             
             risk_result = risk_fusion_service.calculate_risk(
                 voice_analysis=voice_result,
                 intent_analysis=intent_result,
                 action_context_analysis=action_context_result
             )
+            t6 = time.perf_counter()
+            
+            logger.info(f"LATENCY ANALYSIS [chunk={chunk_id}]: "
+                        f"librosa={t1-t0:.3f}s, "
+                        f"voice_integrity={t2-t1:.3f}s, "
+                        f"asr={t3-t2:.3f}s, "
+                        f"intent={t4-t3:.3f}s, "
+                        f"action={t5-t4:.3f}s, "
+                        f"risk={t6-t5:.3f}s, "
+                        f"TOTAL={t6-t0:.3f}s")
+
             
             chunk_risk = risk_result.get("risk_level", "low")
             if get_risk_weight(chunk_risk) > get_risk_weight(current_max_risk):

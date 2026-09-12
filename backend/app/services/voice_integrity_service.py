@@ -20,15 +20,24 @@ def get_model():
     return _extractor, _model, _device
 
 def analyze_voice(audio_array: np.ndarray, sample_rate: int = 16000) -> dict:
-    if len(audio_array) == 0:
+    import librosa
+    
+    rms_energy = float(np.sqrt(np.mean(audio_array**2)))
+    intervals = librosa.effects.split(audio_array, top_db=40)
+    
+    if len(intervals) == 0 or rms_energy < 0.001 or len(audio_array) == 0:
         return {
-            "voice_integrity_score": 0.5,
-            "label": "genuine",
-            "model_name": "MelodyMachine/Deepfake-Audio-Detection-V2",
-            "confidence": 0.0
+            "state": "NO_SPEECH",
+            "voice_integrity_score": None,
+            "spoof_signal": None,
+            "calibrated_spoof_probability": None,
+            "calibrated_bona_fide_probability": None,
+            "label": None,
+            "confidence": None,
+            "model_id": "MelodyMachine/Deepfake-audio-detection-V2",
+            "decision": None
         }
         
-    # Safely handle very short audio
     if len(audio_array) < 400:
         audio_array = np.pad(audio_array, (0, 400 - len(audio_array)), 'constant')
         
@@ -42,8 +51,6 @@ def analyze_voice(audio_array: np.ndarray, sample_rate: int = 16000) -> dict:
         logits = model(**inputs).logits
         probs = torch.softmax(logits, dim=-1)
         
-    # FIXED: The model id2label (0=fake, 1=real) is actually correct.
-    # We map index 0 to fake and 1 to real.
     fake_prob = float(probs[0, 0].item())
     real_prob = float(probs[0, 1].item())
     
@@ -52,8 +59,13 @@ def analyze_voice(audio_array: np.ndarray, sample_rate: int = 16000) -> dict:
     confidence = fake_prob if is_fake else real_prob
     
     return {
-        "voice_integrity_score": real_prob,
+        "state": "SPEECH_DETECTED",
+        "voice_integrity_score": round(real_prob * 100, 2),
+        "spoof_signal": round(fake_prob * 100, 2),
+        "calibrated_spoof_probability": fake_prob,
+        "calibrated_bona_fide_probability": real_prob,
         "label": label,
-        "model_name": "MelodyMachine/Deepfake-Audio-Detection-V2",
-        "confidence": confidence
+        "confidence": confidence,
+        "model_id": "MelodyMachine/Deepfake-audio-detection-V2",
+        "decision": "BLOCK" if is_fake else "ALLOW"
     }

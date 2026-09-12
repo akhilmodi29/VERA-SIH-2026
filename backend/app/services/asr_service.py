@@ -13,8 +13,8 @@ def get_model():
         _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model_id = "openai/whisper-tiny"
         
-        _processor = AutoProcessor.from_pretrained(model_id, low_cpu_mem_usage=True)
-        _model = AutoModelForSpeechSeq2Seq.from_pretrained(model_id, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16)
+        _processor = AutoProcessor.from_pretrained(model_id)
+        _model = AutoModelForSpeechSeq2Seq.from_pretrained(model_id)
         _model.to(_device)
         _model.eval()
     return _processor, _model, _device
@@ -32,7 +32,7 @@ def transcribe_audio(audio_array: np.ndarray, sample_rate: int = 16000) -> dict:
     import torch
 
     inputs = processor(audio_array, sampling_rate=sample_rate, return_tensors="pt")
-    inputs = {k: (v.to(device, dtype=torch.bfloat16) if v.dtype == torch.float32 else v.to(device)) for k, v in inputs.items()}
+    inputs = {k: v.to(device) for k, v in inputs.items()}
     
     with torch.no_grad():
         generated_ids = model.generate(**inputs)
