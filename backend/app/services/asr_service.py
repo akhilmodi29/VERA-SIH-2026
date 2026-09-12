@@ -13,9 +13,11 @@ def get_model():
         _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model_id = "openai/whisper-tiny"
         
-        _processor = AutoProcessor.from_pretrained(model_id)
-        _model = AutoModelForSpeechSeq2Seq.from_pretrained(model_id)
+        _processor = AutoProcessor.from_pretrained(model_id, low_cpu_mem_usage=True)
+        _model = AutoModelForSpeechSeq2Seq.from_pretrained(model_id, low_cpu_mem_usage=True)
         _model.to(_device)
+        if _device.type == 'cpu':
+            _model = torch.quantization.quantize_dynamic(_model, {torch.nn.Linear}, dtype=torch.qint8)
         _model.eval()
     return _processor, _model, _device
 

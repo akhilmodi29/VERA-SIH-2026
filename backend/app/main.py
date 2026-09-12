@@ -1,9 +1,14 @@
+import os
+os.environ['OMP_NUM_THREADS'] = '1'
+os.environ['MKL_NUM_THREADS'] = '1'
+os.environ['OPENBLAS_NUM_THREADS'] = '1'
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.routes import health, websocket, sessions, voice_profiles
+import torch
 from app.db.database import engine, Base
 
 logger = logging.getLogger("vera.startup")
@@ -13,6 +18,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Preload all ML models at startup to eliminate per-request cold-start latency."""
+    torch.set_num_threads(1)
     logger.info("VERA startup: preloading ML models...")
 
     try:
