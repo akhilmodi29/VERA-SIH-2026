@@ -22,7 +22,7 @@ export interface UseLiveDetectionResult {
   accumulatedSignals: string[];
   accumulatedTranscript: string;
   error: string | null;
-  startLiveDetection: (sessionId: string) => Promise<void>;
+  startLiveDetection: (sessionId: string, audioUrl?: string) => Promise<void>;
   stopLiveDetection: () => void;
   getLiveSessionBlob: () => Blob | null;
   getAnalyser: () => AnalyserNode | null;
@@ -116,13 +116,12 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-
+  const sourceRef = useRef<MediaStreamAudioSourceNode | MediaElementAudioSourceNode | null>(null);
   const pcmBufferRef = useRef<Int16Array[]>([]);
   const pcmLengthRef = useRef<number>(0);
-
   const fullSessionBufferRef = useRef<Int16Array[]>([]);
   const fullSessionLengthRef = useRef<number>(0);
+  const audioElemRef = useRef<HTMLAudioElement | null>(null);
 
   const cleanupResources = useCallback(() => {
     if (analyserRef.current) {
@@ -145,6 +144,11 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
+    if (audioElemRef.current) {
+      audioElemRef.current.pause();
+      audioElemRef.current.src = "";
+      audioElemRef.current = null;
+    }
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
@@ -158,7 +162,7 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
     setConnectionState('Disconnected');
   }, [cleanupResources]);
 
-  const startLiveDetection = useCallback(async (sessionId: string) => {
+  const startLiveDetection = useCallback(async (sessionId: string, audioUrl?: string) => {
     cleanupResources();
     setConnectionState('Connecting');
     setError(null);
@@ -170,10 +174,6 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
     fullSessionLengthRef.current = 0;
 
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error('Microphone not supported on this browser.');
-      }
-
       const wsUrl = `${WS_BASE_URL}/api/v1/ws/sessions/${sessionId}`;
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -240,16 +240,33 @@ export const useLiveDetection = (): UseLiveDetectionResult => {
         cleanupResources();
       };
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
         sampleRate: 16000,
       });
       audioContextRef.current = audioContext;
 
-      const source = audioContext.createMediaStreamSource(stream);
-      sourceRef.current = source;
+      let source: MediaStreamAudioSourceNode | MediaElementAudioSourceNode;
+      if (!audioUrl) {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('Microphone not supported on this browser.');
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        source = audioContext.createMediaStreamSource(stream);
+      } else {
+        const audioElem = new Audio(audioUrl);
+        audioElem.crossOrigin = "anonymous";
+        audioElemRef.current = audioElem;
+        source = audioContext.createMediaElementSource(audioElem);
+        audioElem.play().catch(err => {
+          console.error("Audio playback failed:", err);
+          setError("Failed to play demo audio. Please check browser permissions.");
+        });
+        audioElem.onended = () => {
+          stopLiveDetection();
+        };
+      }
+      sourceRef.current = source as any;
 
       const processor = audioContext.createScriptProcessor(4096, 1, 1);
       processorRef.current = processor;

@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
 import VoiceProfiles from './pages/VoiceProfiles';
 import Evidence from './pages/Evidence';
+import CallDemo from './pages/CallDemo';
 
 const App: React.FC = () => {
   return (
@@ -14,6 +15,7 @@ const App: React.FC = () => {
         <Route path="sessions" element={<Sessions />} />
         <Route path="voice-profiles" element={<VoiceProfiles />} />
         <Route path="evidence" element={<Evidence />} />
+        <Route path="demo-call" element={<CallDemo />} />
       </Route>
     </Routes>
   );
