@@ -14,10 +14,8 @@ def get_model():
         model_id = "MelodyMachine/Deepfake-Audio-Detection-V2"
         
         _extractor = AutoFeatureExtractor.from_pretrained(model_id, low_cpu_mem_usage=True)
-        _model = AutoModelForAudioClassification.from_pretrained(model_id, low_cpu_mem_usage=True)
+        _model = AutoModelForAudioClassification.from_pretrained(model_id, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16)
         _model.to(_device)
-        if _device.type == 'cpu':
-            _model = torch.quantization.quantize_dynamic(_model, {torch.nn.Linear}, dtype=torch.qint8)
         _model.eval()
     return _extractor, _model, _device
 
@@ -38,7 +36,7 @@ def analyze_voice(audio_array: np.ndarray, sample_rate: int = 16000) -> dict:
     import torch
 
     inputs = extractor(audio_array, sampling_rate=sample_rate, return_tensors="pt", padding=True)
-    inputs = {k: v.to(device) for k, v in inputs.items()}
+    inputs = {k: (v.to(device, dtype=torch.bfloat16) if v.dtype == torch.float32 else v.to(device)) for k, v in inputs.items()}
     
     with torch.no_grad():
         logits = model(**inputs).logits

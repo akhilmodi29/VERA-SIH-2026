@@ -24,6 +24,7 @@ async def lifespan(app: FastAPI):
     try:
         from app.services.voice_integrity_service import get_model as vi_get
         vi_get()
+        import gc; gc.collect()
         logger.info("  [OK] voice_integrity  MelodyMachine/Deepfake-Audio-Detection-V2")
     except Exception as e:
         logger.error(f"  [FAIL] voice_integrity model could not load: {e}")
