@@ -13,8 +13,8 @@ def get_model():
         _device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model_id = "MelodyMachine/Deepfake-Audio-Detection-V2"
         
-        _extractor = AutoFeatureExtractor.from_pretrained(model_id, low_cpu_mem_usage=True)
-        _model = AutoModelForAudioClassification.from_pretrained(model_id, low_cpu_mem_usage=True, torch_dtype=torch.bfloat16)
+        _extractor = AutoFeatureExtractor.from_pretrained(model_id)
+        _model = AutoModelForAudioClassification.from_pretrained(model_id)
         _model.to(_device)
         _model.eval()
     return _extractor, _model, _device
@@ -36,23 +36,23 @@ def analyze_voice(audio_array: np.ndarray, sample_rate: int = 16000) -> dict:
     import torch
 
     inputs = extractor(audio_array, sampling_rate=sample_rate, return_tensors="pt", padding=True)
-    inputs = {k: (v.to(device, dtype=torch.bfloat16) if v.dtype == torch.float32 else v.to(device)) for k, v in inputs.items()}
+    inputs = {k: v.to(device) for k, v in inputs.items()}
     
     with torch.no_grad():
         logits = model(**inputs).logits
         probs = torch.softmax(logits, dim=-1)
         
-    # The model actually outputs 0 = real (genuine) and 1 = fake (synthetic)
-    # despite config.id2label suggesting otherwise.
-    real_prob = float(probs[0, 0].item())
-    fake_prob = float(probs[0, 1].item())
+    # FIXED: The model id2label (0=fake, 1=real) is actually correct.
+    # We map index 0 to fake and 1 to real.
+    fake_prob = float(probs[0, 0].item())
+    real_prob = float(probs[0, 1].item())
     
     is_fake = fake_prob >= 0.5
     label = "synthetic" if is_fake else "genuine"
     confidence = fake_prob if is_fake else real_prob
     
     return {
-        "voice_integrity_score": fake_prob,
+        "voice_integrity_score": real_prob,
         "label": label,
         "model_name": "MelodyMachine/Deepfake-Audio-Detection-V2",
         "confidence": confidence
