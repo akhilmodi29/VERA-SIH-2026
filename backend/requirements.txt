@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn
 pydantic
@@ -8,6 +9,6 @@ python-multipart
 librosa
 soundfile
 numpy
-torch
-torchaudio
+torch==2.4.1+cpu
+torchaudio==2.4.1+cpu
 transformers
